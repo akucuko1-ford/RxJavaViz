@@ -1,26 +1,48 @@
 package com.example.rxjavaviz
 
 import io.reactivex.Observable
-import java.lang.Exception
+import java.util.concurrent.TimeUnit
 
-private var output = "\r"
+private var output = ""
+private var mapOutput = mutableListOf<String>()
 
-fun <T, R> animate(source: Observable<T>, function: FordMapper<T>.() -> Observable<R>): Observable<R> =
-    function.invoke(FordMapper(source))
+fun <T, R> animate(
+    source: Observable<T>,
+    function: AnimatedObservable<T>.() -> Observable<R>
+): Observable<R> =
+    function.invoke(AnimatedObservable(source))
 
-fun <T, R> FordMapper<T>.map(transformer: (T) -> R): Observable<R> =
-    source.map(transformer).doOnNext {
-        output += "$output -- $it "
-        print(output)
-    }
+fun <T, R> AnimatedObservable<T>.map(transformer: (T) -> R): AnimatedObservable<R> =
+    AnimatedObservable(
+        source.delay(1500, TimeUnit.MILLISECONDS)
+            .map(transformer)
+            .doOnNext {
+                output = "$it"
+                print("\r$output")
+//                output += "$output -- $it "
+//                mapOutput.add(mapOutput.size-1, it.toString())
+            })
 
-fun <T, R> FordMapper<T>.flatMap(transformer: (T) -> Observable<R>): Observable<R> {
-    var flatMapOutput = "\r"
-    return source.flatMap(transformer).doOnNext {
-        flatMapOutput += "$flatMapOutput -- $it "
-        print(flatMapOutput)
-    }
+fun <T> AnimatedObservable<T>.flatMap(transformer: (T) -> Unit): AnimatedObservable<T> {
+    output = output + "\nasds"
+    return this
+}
+
+fun <T> AnimatedObservable<T>.delay(): AnimatedObservable<T> =
+    AnimatedObservable(source.delay(300, TimeUnit.MILLISECONDS))
+
+fun <T> AnimatedObservable<T>.subscribe(): Observable<T> =
+    source.doOnNext { print("\r$output") }
+
+fun <T, R> AnimatedObservable<T>.switchMap(transformer: (T) -> Observable<R>): AnimatedObservable<R> {
+    var switchMapOutput = "\r\n"
+    return AnimatedObservable(source.switchMap(transformer).doOnNext {
+        switchMapOutput += "$switchMapOutput -- $it "
+        print(switchMapOutput)
+    })
 }
 
 
-class FordMapper<T> (val source: Observable<T>)
+class AnimatedObservable<T>(val source: Observable<T>)
+
+fun <T> Observable<T>.startAnimate(): T = blockingLast()
